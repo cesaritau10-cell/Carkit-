@@ -16,20 +16,39 @@ interface Cart {
   geofenceBreached: boolean;
 }
 
-const STORE_LOCATION = { lat: -31.7544, lng: -52.3650 };
+const STORE_LOCATION = { lat: -31.7565, lng: -52.3611 }; // AV DUQUE DE CAXIAS 837 PELOTAS
+const GEOFENCE_RADIUS_METERS = 2000;
+
+// Haversine formula to calculate distance in meters
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3; // Earth radius in meters
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+}
 
 let carts: Cart[] = [
-  { id: 'C-001', status: 'in_store', batteryLevel: 100, location: { lat: -31.7544, lng: -52.3650 }, lastUpdate: new Date().toISOString(), geofenceBreached: false },
-  { id: 'C-002', status: 'in_store', batteryLevel: 98, location: { lat: -31.7544, lng: -52.3650 }, lastUpdate: new Date().toISOString(), geofenceBreached: false },
-  { id: 'C-003', status: 'partner_parking', batteryLevel: 85, location: { lat: -31.7560, lng: -52.3620 }, lastUpdate: new Date().toISOString(), geofenceBreached: false },
-  { id: 'C-004', status: 'partner_parking', batteryLevel: 82, location: { lat: -31.7561, lng: -52.3621 }, lastUpdate: new Date().toISOString(), geofenceBreached: false },
-  { id: 'C-005', status: 'partner_parking', batteryLevel: 90, location: { lat: -31.7560, lng: -52.3622 }, lastUpdate: new Date().toISOString(), geofenceBreached: false },
-  { id: 'C-006', status: 'abandoned', batteryLevel: 45, location: { lat: -31.7520, lng: -52.3680 }, lastUpdate: new Date().toISOString(), geofenceBreached: false },
-  { id: 'C-007', status: 'abandoned', batteryLevel: 30, location: { lat: -31.7521, lng: -52.3681 }, lastUpdate: new Date().toISOString(), geofenceBreached: false },
-  { id: 'C-008', status: 'abandoned', batteryLevel: 15, location: { lat: -31.7522, lng: -52.3679 }, lastUpdate: new Date().toISOString(), geofenceBreached: false },
-  { id: 'C-009', status: 'abandoned', batteryLevel: 10, location: { lat: -31.7520, lng: -52.3682 }, lastUpdate: new Date().toISOString(), geofenceBreached: false },
-  { id: 'C-010', status: 'abandoned', batteryLevel: 5, location: { lat: -31.7400, lng: -52.3800 }, lastUpdate: new Date().toISOString(), geofenceBreached: true },
-  { id: 'C-011', status: 'in_use', batteryLevel: 70, location: { lat: -31.7550, lng: -52.3660 }, lastUpdate: new Date().toISOString(), geofenceBreached: false },
+  { id: 'C-001', status: 'in_store', batteryLevel: 100, location: { ...STORE_LOCATION }, lastUpdate: new Date().toISOString(), geofenceBreached: false },
+  { id: 'C-002', status: 'in_store', batteryLevel: 98, location: { ...STORE_LOCATION }, lastUpdate: new Date().toISOString(), geofenceBreached: false },
+  { id: 'C-003', status: 'partner_parking', batteryLevel: 85, location: { ...STORE_LOCATION }, lastUpdate: new Date().toISOString(), geofenceBreached: false },
+  { id: 'C-004', status: 'partner_parking', batteryLevel: 82, location: { ...STORE_LOCATION }, lastUpdate: new Date().toISOString(), geofenceBreached: false },
+  { id: 'C-005', status: 'partner_parking', batteryLevel: 90, location: { ...STORE_LOCATION }, lastUpdate: new Date().toISOString(), geofenceBreached: false },
+  { id: 'C-006', status: 'abandoned', batteryLevel: 45, location: { ...STORE_LOCATION }, lastUpdate: new Date().toISOString(), geofenceBreached: false },
+  { id: 'C-007', status: 'abandoned', batteryLevel: 30, location: { ...STORE_LOCATION }, lastUpdate: new Date().toISOString(), geofenceBreached: false },
+  { id: 'C-008', status: 'abandoned', batteryLevel: 15, location: { ...STORE_LOCATION }, lastUpdate: new Date().toISOString(), geofenceBreached: false },
+  { id: 'C-009', status: 'abandoned', batteryLevel: 10, location: { ...STORE_LOCATION }, lastUpdate: new Date().toISOString(), geofenceBreached: false },
+  { id: 'C-010', status: 'abandoned', batteryLevel: 5, location: { ...STORE_LOCATION }, lastUpdate: new Date().toISOString(), geofenceBreached: true },
+  { id: 'C-011', status: 'in_use', batteryLevel: 70, location: { ...STORE_LOCATION }, lastUpdate: new Date().toISOString(), geofenceBreached: false },
+  { id: 'C-012', status: 'in_use', batteryLevel: 8, location: { ...STORE_LOCATION }, lastUpdate: new Date().toISOString(), geofenceBreached: false },
+  { id: 'C-013', status: 'abandoned', batteryLevel: 40, location: { ...STORE_LOCATION }, lastUpdate: new Date().toISOString(), geofenceBreached: true }, // > 2km away
 ];
 
 async function startServer() {
@@ -59,14 +78,22 @@ async function startServer() {
   setInterval(() => {
     carts = carts.map(cart => {
       const isMoving = cart.status === 'in_use' || cart.status === 'abandoned';
+      const newLocation = isMoving ? {
+        lat: cart.location.lat + (Math.random() - 0.5) * 0.0005,
+        lng: cart.location.lng + (Math.random() - 0.5) * 0.0005
+      } : cart.location;
+
+      const distanceToStore = calculateDistance(
+        newLocation.lat, newLocation.lng,
+        STORE_LOCATION.lat, STORE_LOCATION.lng
+      );
+
       return {
         ...cart,
         batteryLevel: Math.max(0, cart.batteryLevel - Math.floor(Math.random() * 2)),
-        location: isMoving ? {
-          lat: cart.location.lat + (Math.random() - 0.5) * 0.0005,
-          lng: cart.location.lng + (Math.random() - 0.5) * 0.0005
-        } : cart.location,
-        lastUpdate: new Date().toISOString()
+        location: newLocation,
+        lastUpdate: new Date().toISOString(),
+        geofenceBreached: distanceToStore > GEOFENCE_RADIUS_METERS
       };
     });
 
