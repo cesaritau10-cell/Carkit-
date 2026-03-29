@@ -1,0 +1,5 @@
+{
+  "name": "CartTracker Dashboard",
+  "description": "Sistema de logística inteligente para gerenciamento de carrinhos de supermercado em Porto Alegre.",
+  "requestFramePermissions": []
+}
